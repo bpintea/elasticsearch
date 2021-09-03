@@ -21,6 +21,7 @@ import org.elasticsearch.action.search.SearchRequest;
 import org.elasticsearch.action.search.SearchResponse;
 import org.elasticsearch.action.search.ShardSearchFailure;
 import org.elasticsearch.client.Client;
+import org.elasticsearch.core.Tuple;
 import org.elasticsearch.search.SearchContextMissingException;
 import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
@@ -52,7 +53,6 @@ import org.elasticsearch.xpack.transform.persistence.SeqNoPrimaryTermAndIndex;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
-import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -86,7 +86,6 @@ public class ClientTransformIndexerTests extends ESTestCase {
             mock(Client.class),
             mock(TransformIndexerStats.class),
             mock(TransformConfig.class),
-            Collections.emptyMap(),
             null,
             new TransformCheckpoint("transform", Instant.now().toEpochMilli(), 0L, Collections.emptyMap(), Instant.now().toEpochMilli()),
             new TransformCheckpoint("transform", Instant.now().toEpochMilli(), 2L, Collections.emptyMap(), Instant.now().toEpochMilli()),
@@ -144,7 +143,6 @@ public class ClientTransformIndexerTests extends ESTestCase {
                 client,
                 mock(TransformIndexerStats.class),
                 config,
-                Collections.emptyMap(),
                 null,
                 new TransformCheckpoint(
                     "transform",
@@ -242,7 +240,6 @@ public class ClientTransformIndexerTests extends ESTestCase {
                 client,
                 mock(TransformIndexerStats.class),
                 config,
-                Collections.emptyMap(),
                 null,
                 new TransformCheckpoint(
                     "transform",
@@ -310,7 +307,6 @@ public class ClientTransformIndexerTests extends ESTestCase {
             Client client,
             TransformIndexerStats initialStats,
             TransformConfig transformConfig,
-            Map<String, String> fieldMappings,
             TransformProgress transformProgress,
             TransformCheckpoint lastCheckpoint,
             TransformCheckpoint nextCheckpoint,
@@ -327,7 +323,6 @@ public class ClientTransformIndexerTests extends ESTestCase {
                 client,
                 initialStats,
                 transformConfig,
-                fieldMappings,
                 transformProgress,
                 lastCheckpoint,
                 nextCheckpoint,
@@ -338,8 +333,8 @@ public class ClientTransformIndexerTests extends ESTestCase {
         }
 
         @Override
-        protected SearchRequest buildSearchRequest() {
-            return new SearchRequest().source(new SearchSourceBuilder());
+        protected Tuple<String, SearchRequest> buildSearchRequest() {
+            return new Tuple<>("mock", new SearchRequest().source(new SearchSourceBuilder()));
         }
     }
 
