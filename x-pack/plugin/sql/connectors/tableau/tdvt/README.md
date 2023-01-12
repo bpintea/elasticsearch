@@ -65,7 +65,7 @@ Note that Logstash will add a few extra fields per row ("document" in Elasticsea
 
 2. Place the `.taco` file either in Tableau's dedicated connectors directory, `C:\Users\[Windows User]\Documents\My Tableau Repository\Connectors`, or a custom one ("<taco dir path>").
 
-3. Use the `tdvt_run.py` application, that clone the TDVT SDK repo, setup config files and launch the TDVT run:
+3. Use the `tdvt_run.py` application, that clones the TDVT SDK repo, sets up config files and launchs the TDVT run:
     ```
     python3 ./tdvt_run.py -u "http://user:pass@elastic-host:9200" -t <taco dir path>
     ```
@@ -88,7 +88,7 @@ Setting up the TDVT testing involves following the steps detailed in the [offici
 	Save the TDS files as `cast_calcs.elastic.tds` and `Staples.elastic.tds`
 
 3. Setup a TDVT "workspace" (#`Set up`), i.e. a directory containing the test files.
-	Either package TDVT and install it as a Python PIP module (recommended, if [working](https://github.com/tableau/connector-plugin-sdk/issues/534)), or simply copy the `tdvt` directory of the repo into the "workspace" directory. Invoking the TDVT will then be done as `py -3 -m tdvt.tdvt <params>`, or `py -3 .\tdvt\tdvt_launcher.py <params>`, respectively. In the steps below the invokation will be indicated by the `$TDVT` call.
+	Either package TDVT and install it as a Python PIP module (recommended), or simply copy the `tdvt` directory of the repo into the "workspace" directory. Invoking the TDVT will then be done as `py -3 -m tdvt.tdvt <params>`, or `py -3 .\tdvt\tdvt_launcher.py <params>`, respectively. In the steps below the invokation will be indicated by the `$TDVT` call.
 	```
 	$TDVT action --setup
 	```
