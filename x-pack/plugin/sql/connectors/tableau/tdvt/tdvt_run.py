@@ -32,7 +32,6 @@ TDVT_LAUNCHER = os.path.join(TDVT_SDK_NAME, "tdvt", "tdvt_launcher.py")
 # configs
 TDS_SRC_DIR = "tds"
 TACO_SRC_DIR = "C:\\Users\\" + getpass.getuser() + "\\Documents\\My Tableau Repository\\Connectors"
-TACO_SIGNED = True
 ES_URL = "http://elastic-admin:elastic-password@127.0.0.1:9200"
 
 
@@ -180,11 +179,19 @@ def add_data_source():
 
     exe(tdvt_args, interactive)
 
-def config_elastic_ini():
+def config_elastic_ini(taco_src_dir, taco_signed):
     ELASTIC_INI = os.path.join("config", "elastic.ini")
 
-    cmdline_override = "CommandLineOverride = -DConnectPluginsPath=%s -DDisableVerifyConnectorPluginSignature=%s" % \
-            (TACO_SRC_DIR, TACO_SIGNED)
+    cmdline_override = ""
+    if taco_src_dir != TACO_SRC_DIR:
+        cmdline_override += " -DConnectPluginsPath=%s" % taco_src_dir
+    if taco_signed == False:
+        cmdline_override += " -DDisableVerifyConnectorPluginSignature=true"
+
+    if not cmdline_override:
+        return
+    else:
+        cmdline_override = "CommandLineOverride =" + cmdline_override
 
     updated_lines = []
     with open(ELASTIC_INI) as ini:
@@ -207,7 +214,7 @@ def parse_args():
 
     parser.add_argument("-t", "--taco-dir", help="Directory containing the connector file.",
             default=TACO_SRC_DIR)
-    parser.add_argument("-s", "--signed", help="Is the .taco signed?", action="store_true", default=TACO_SIGNED)
+    parser.add_argument("-s", "--signed", help="Is the .taco signed?", action="store_true", default=False)
     parser.add_argument("-r", "--run-dir", help="Directory to run the testing under.",
             default=TDVT_RUN_DIR)
     parser.add_argument("-u", "--url", help="Elasticsearch URL.", type=str, default=ES_URL)
@@ -237,8 +244,7 @@ def main():
 
     config_tdvt_override_ini()
     add_data_source()
-    if args.taco_dir != TACO_SRC_DIR and args.signed != TACO_SIGNED:
-        config_elastic_ini()
+    config_elastic_ini(args.taco_dir, args.signed)
 
     run_tdvt()
 
