@@ -174,6 +174,70 @@ public class FixtureUtils {
     }
 
     /**
+     * Inject the given comma-separated map entries into the EXTERNAL clause of {@code externalPart}.
+     * <ul>
+     *   <li>If {@code externalPart} already ends with {@code WITH { ... }}, the new entries are
+     *       merged into the existing map (after its opening {@code &#123;}).</li>
+     *   <li>Otherwise a fresh {@code WITH &#123; ... &#125;} is appended.</li>
+     * </ul>
+     * The entries string must be valid map content (e.g. {@code "endpoint": "x", "key": "y"}) — it
+     * is inserted verbatim.
+     */
+    public static String injectWithEntries(String externalPart, String entries) {
+        int withBrace = findOpenBraceOfTrailingWith(externalPart);
+        if (withBrace < 0) {
+            return externalPart + " WITH { " + entries + " }";
+        }
+        return externalPart.substring(0, withBrace + 1) + " " + entries + ", " + externalPart.substring(withBrace + 1);
+    }
+
+    /**
+     * Locate the position of the {@code &#123;} that opens a trailing {@code WITH &#123; ... &#125;}
+     * clause in an EXTERNAL fragment, or {@code -1} if no such clause is present. The detection is
+     * quote-aware so a literal {@code WITH} inside the source path string is ignored.
+     */
+    private static int findOpenBraceOfTrailingWith(String externalPart) {
+        int len = externalPart.length();
+        boolean inQuotes = false;
+        char quoteChar = 0;
+        int lastUnquotedWith = -1;
+
+        for (int i = 0; i + 4 <= len; i++) {
+            char c = externalPart.charAt(i);
+            if (inQuotes == false && (c == '"' || c == '\'')) {
+                inQuotes = true;
+                quoteChar = c;
+            } else if (inQuotes && c == quoteChar) {
+                inQuotes = false;
+            } else if (inQuotes == false
+                && (c == 'W' || c == 'w')
+                && externalPart.regionMatches(true, i, "WITH", 0, 4)
+                && (i == 0 || isIdentPart(externalPart.charAt(i - 1)) == false)
+                && (i + 4 == len || isIdentPart(externalPart.charAt(i + 4)) == false)) {
+                    lastUnquotedWith = i;
+                }
+        }
+
+        if (lastUnquotedWith < 0) {
+            return -1;
+        }
+        for (int i = lastUnquotedWith + 4; i < len; i++) {
+            char c = externalPart.charAt(i);
+            if (c == '{') {
+                return i;
+            }
+            if (Character.isWhitespace(c) == false) {
+                return -1;
+            }
+        }
+        return -1;
+    }
+
+    private static boolean isIdentPart(char c) {
+        return Character.isLetterOrDigit(c) || c == '_';
+    }
+
+    /**
      * Find the first pipe character that's not inside a quoted string.
      * Used by fixture injectParams methods to locate where to insert WITH clauses.
      */
