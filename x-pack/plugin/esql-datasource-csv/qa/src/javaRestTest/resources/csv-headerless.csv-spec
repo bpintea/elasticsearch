@@ -1,0 +1,31 @@
+// CSV-only spec: exercises options that are specific to the CSV format reader.
+
+headerRowFalse
+required_capability: external_command
+required_capability: external_csv_header_row_option
+required_capability: datasource_file_readers_no_text_type
+
+EXTERNAL "{{employees}}" WITH {"header_row": false}
+| KEEP col1
+| LIMIT 2
+;
+
+col1:keyword
+"emp_no:integer"
+"10001"
+;
+
+headerRowFalseWithCustomPrefix
+required_capability: external_command
+required_capability: external_csv_header_row_option
+required_capability: datasource_file_readers_no_text_type
+
+EXTERNAL "{{employees}}" WITH {"header_row": false, "column_prefix": "f"}
+| KEEP f1
+| LIMIT 2
+;
+
+f1:keyword
+"emp_no:integer"
+"10001"
+;

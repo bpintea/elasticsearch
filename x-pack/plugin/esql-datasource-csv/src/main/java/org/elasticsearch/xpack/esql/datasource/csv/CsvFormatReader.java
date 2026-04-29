@@ -107,7 +107,9 @@ import java.util.regex.Pattern;
  *           {@code column_prefix} and types are inferred from the sample.</td></tr>
  *   <tr><td>{@code column_prefix}</td><td>{@code col}</td>
  *       <td>Prefix for synthesized column names when {@code header_row} is {@code false};
- *           a 0-based counter is appended (e.g. {@code col0, col1, col2, ...}).</td></tr>
+ *           a 0-based counter is appended (e.g. {@code col0, col1, col2, ...}). Ignored when
+ *           {@code header_row} is {@code true}. An empty prefix yields purely numeric names
+ *           ({@code 0, 1, 2, ...}) which must be backtick-quoted in ES|QL queries.</td></tr>
  * </table>
  *
  * <h2>Bracket multi-value syntax</h2>
@@ -211,7 +213,7 @@ public class CsvFormatReader implements SegmentableFormatReader {
         DateTimeFormatter datetimeFormatter = parseDatetimeFormat(config.get("datetime_format"));
         int maxFieldSize = parseInt(config.get("max_field_size"), CsvFormatOptions.DEFAULT_MAX_FIELD_SIZE);
         CsvFormatOptions.MultiValueSyntax multiValueSyntax = parseMultiValueSyntax(config.get("multi_value_syntax"));
-        boolean headerRow = parseBoolean(config.get("header_row"), true);
+        boolean headerRow = parseBooleanOption("header_row", config.get("header_row"), true);
         String columnPrefix = parseString(config.get("column_prefix"), CsvFormatOptions.DEFAULT_COLUMN_PREFIX);
 
         if (delimiter == ','
@@ -300,24 +302,18 @@ public class CsvFormatReader implements SegmentableFormatReader {
         }
     }
 
-    private static boolean parseBoolean(Object value, boolean defaultValue) {
+    private static boolean parseBooleanOption(String key, Object value, boolean defaultValue) {
         if (value == null) {
             return defaultValue;
         }
         if (value instanceof Boolean b) {
             return b;
         }
-        String s = value.toString().trim();
-        if (s.isEmpty()) {
-            return defaultValue;
+        try {
+            return Booleans.parseBoolean(value.toString(), defaultValue);
+        } catch (IllegalArgumentException e) {
+            throw new IllegalArgumentException("Invalid boolean value [" + value + "] for option [" + key + "]", e);
         }
-        if ("true".equalsIgnoreCase(s)) {
-            return true;
-        }
-        if ("false".equalsIgnoreCase(s)) {
-            return false;
-        }
-        throw new IllegalArgumentException("Invalid boolean value [" + value + "]");
     }
 
     private static Charset parseEncoding(Object value) {
@@ -431,17 +427,26 @@ public class CsvFormatReader implements SegmentableFormatReader {
             if (sample.rows().isEmpty()) {
                 throw new IOException("CSV file has no data rows");
             }
-            int columnCount = 0;
-            for (String[] row : sample.rows()) {
-                if (row.length > columnCount) {
-                    columnCount = row.length;
-                }
-            }
-            String[] columnNames = synthesizeColumnNames(columnCount, options.columnPrefix());
-            return CsvSchemaInferrer.inferSchema(columnNames, sample.rows());
+            return inferSyntheticSchema(sample.rows(), options.columnPrefix());
         } finally {
             breaker.addWithoutBreaking(-sample.reservedBytes());
         }
+    }
+
+    /**
+     * Build a schema for a headerless CSV: count the widest sample row, synthesize names from
+     * {@code prefix}, and run type inference. Pure on its inputs — does not touch the circuit
+     * breaker.
+     */
+    static List<Attribute> inferSyntheticSchema(List<String[]> sampleRows, String prefix) {
+        int columnCount = 0;
+        for (String[] row : sampleRows) {
+            if (row.length > columnCount) {
+                columnCount = row.length;
+            }
+        }
+        String[] columnNames = synthesizeColumnNames(columnCount, prefix);
+        return CsvSchemaInferrer.inferSchema(columnNames, sampleRows);
     }
 
     static String[] synthesizeColumnNames(int count, String prefix) {
@@ -1027,16 +1032,9 @@ public class CsvFormatReader implements SegmentableFormatReader {
                 blockFactory.breaker().addWithoutBreaking(-sample.reservedBytes());
                 return null;
             }
-            int columnCount = 0;
-            for (String[] row : sample.rows()) {
-                if (row.length > columnCount) {
-                    columnCount = row.length;
-                }
-            }
-            String[] columnNames = synthesizeColumnNames(columnCount, options.columnPrefix());
             prefetchedRows = sample.rows();
             prefetchedRowsBytes = sample.reservedBytes();
-            return CsvSchemaInferrer.inferSchema(columnNames, sample.rows());
+            return inferSyntheticSchema(sample.rows(), options.columnPrefix());
         }
 
         private void initProjection() {
