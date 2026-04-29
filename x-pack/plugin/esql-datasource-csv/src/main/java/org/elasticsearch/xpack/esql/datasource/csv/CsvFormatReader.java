@@ -474,10 +474,22 @@ public class CsvFormatReader implements SegmentableFormatReader {
             }
         }
         if (duplicates != null) {
+            // Render as ['a', '', 'b'] so empty-string names (a common cause via leading double commas)
+            // are visible instead of collapsing to [].
+            StringBuilder rendered = new StringBuilder("[");
+            boolean first = true;
+            for (String dup : duplicates) {
+                if (first == false) {
+                    rendered.append(", ");
+                }
+                first = false;
+                rendered.append('\'').append(dup).append('\'');
+            }
+            rendered.append(']');
             throw new ParsingException(
                 "CSV header has duplicate column names {}; if the file has no header row, "
                     + "set [\"header_row\": false] in the WITH options",
-                duplicates
+                rendered.toString()
             );
         }
     }

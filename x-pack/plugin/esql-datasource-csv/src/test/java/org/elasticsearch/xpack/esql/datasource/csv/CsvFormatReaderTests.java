@@ -3163,14 +3163,17 @@ public class CsvFormatReaderTests extends ESTestCase {
     }
 
     public void testBlankHeaderNamesThrowParsingException() {
-        // Most common real-world trigger: a leading blank cell in the header (e.g. trailing comma in
-        // some tools) collides with another blank one.
-        String csv = ",a,\n1,2,3\n";
+        // Two adjacent commas at the start of the header line produce two empty-string column names
+        // — the most common real-world trigger of the duplicate-name path. (A trailing-comma case
+        // like ",a," would be String.split-stripped and not hit this guard.)
+        String csv = ",,a\n1,2,3\n";
         StorageObject object = createStorageObject(csv);
         CsvFormatReader reader = new CsvFormatReader(blockFactory);
 
         ParsingException ex = expectThrows(ParsingException.class, () -> reader.schema(object));
         assertTrue(ex.getMessage().contains("duplicate column names"));
+        // The empty-string duplicate must be visible in the message (rendered as '').
+        assertTrue("expected empty-name marker in message: " + ex.getMessage(), ex.getMessage().contains("['']"));
     }
 
     public void testDuplicateTypedHeaderNamesThrowParsingException() {
