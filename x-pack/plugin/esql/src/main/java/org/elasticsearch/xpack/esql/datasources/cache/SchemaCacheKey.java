@@ -41,6 +41,7 @@ public record SchemaCacheKey(
         "comment",
         "max_field_size",
         "multi_value_syntax",
+        "schema_sample_size",
         "skip_rows",
         "trim_whitespace"
     );

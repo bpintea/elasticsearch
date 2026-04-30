@@ -206,4 +206,53 @@ public class GcsConfigurationTests extends ESTestCase {
             () -> GcsConfiguration.fromFields(null, null, "http://ep", null, "unsupported")
         );
     }
+
+    public void testFromMapRejectsUnknownKeys() {
+        Map<String, Object> raw = new HashMap<>();
+        raw.put("credentials", "{\"type\":\"service_account\"}");
+        raw.put("header_row", false);
+        org.elasticsearch.common.ValidationException e = expectThrows(
+            org.elasticsearch.common.ValidationException.class,
+            () -> GcsConfiguration.fromMap(raw)
+        );
+        assertThat(e.getMessage(), org.hamcrest.Matchers.containsString("unknown setting [header_row]"));
+    }
+
+    public void testFromQueryConfigDropsUnknownKeys() {
+        Map<String, Object> raw = new HashMap<>();
+        raw.put("credentials", "{\"type\":\"service_account\"}");
+        raw.put("project_id", "my-project");
+        raw.put("endpoint", "http://localhost:4443");
+        raw.put("header_row", false);
+        raw.put("column_prefix", "f");
+
+        GcsConfiguration config = GcsConfiguration.fromQueryConfig(raw);
+        assertNotNull(config);
+        assertEquals("{\"type\":\"service_account\"}", config.serviceAccountCredentials());
+        assertEquals("my-project", config.projectId());
+        assertEquals("http://localhost:4443", config.endpoint());
+    }
+
+    public void testFromQueryConfigStillEnforcesAuthConflict() {
+        Map<String, Object> raw = new HashMap<>();
+        raw.put("auth", "none");
+        raw.put("credentials", "{\"type\":\"service_account\"}");
+        raw.put("header_row", false);
+        org.elasticsearch.common.ValidationException e = expectThrows(
+            org.elasticsearch.common.ValidationException.class,
+            () -> GcsConfiguration.fromQueryConfig(raw)
+        );
+        assertThat(e.getMessage(), org.hamcrest.Matchers.containsString("auth=none cannot be combined with explicit credentials"));
+    }
+
+    public void testFromQueryConfigWithOnlyUnknownKeysReturnsNull() {
+        Map<String, Object> raw = new HashMap<>();
+        raw.put("header_row", false);
+        raw.put("column_prefix", "f");
+        assertNull(GcsConfiguration.fromQueryConfig(raw));
+    }
+
+    public void testFromQueryConfigWithNullReturnsNull() {
+        assertNull(GcsConfiguration.fromQueryConfig(null));
+    }
 }

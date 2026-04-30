@@ -171,4 +171,53 @@ public class AzureConfigurationTests extends ESTestCase {
             () -> AzureConfiguration.fromFields(null, null, null, null, "https://ep", "unsupported")
         );
     }
+
+    public void testFromMapRejectsUnknownKeys() {
+        Map<String, Object> raw = new HashMap<>();
+        raw.put("account", "acc");
+        raw.put("header_row", false);
+        org.elasticsearch.common.ValidationException e = expectThrows(
+            org.elasticsearch.common.ValidationException.class,
+            () -> AzureConfiguration.fromMap(raw)
+        );
+        assertThat(e.getMessage(), org.hamcrest.Matchers.containsString("unknown setting [header_row]"));
+    }
+
+    public void testFromQueryConfigDropsUnknownKeys() {
+        Map<String, Object> raw = new HashMap<>();
+        raw.put("account", "myaccount");
+        raw.put("key", "mykey");
+        raw.put("endpoint", "https://ep");
+        raw.put("header_row", false);
+        raw.put("column_prefix", "f");
+
+        AzureConfiguration config = AzureConfiguration.fromQueryConfig(raw);
+        assertNotNull(config);
+        assertEquals("myaccount", config.account());
+        assertEquals("mykey", config.key());
+        assertEquals("https://ep", config.endpoint());
+    }
+
+    public void testFromQueryConfigStillEnforcesAuthConflict() {
+        Map<String, Object> raw = new HashMap<>();
+        raw.put("auth", "none");
+        raw.put("connection_string", "connstr");
+        raw.put("header_row", false);
+        org.elasticsearch.common.ValidationException e = expectThrows(
+            org.elasticsearch.common.ValidationException.class,
+            () -> AzureConfiguration.fromQueryConfig(raw)
+        );
+        assertThat(e.getMessage(), org.hamcrest.Matchers.containsString("auth=none cannot be combined with explicit credentials"));
+    }
+
+    public void testFromQueryConfigWithOnlyUnknownKeysReturnsNull() {
+        Map<String, Object> raw = new HashMap<>();
+        raw.put("header_row", false);
+        raw.put("column_prefix", "f");
+        assertNull(AzureConfiguration.fromQueryConfig(raw));
+    }
+
+    public void testFromQueryConfigWithNullReturnsNull() {
+        assertNull(AzureConfiguration.fromQueryConfig(null));
+    }
 }

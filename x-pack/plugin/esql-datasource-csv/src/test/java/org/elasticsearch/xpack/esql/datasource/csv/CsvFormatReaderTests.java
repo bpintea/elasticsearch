@@ -3144,7 +3144,7 @@ public class CsvFormatReaderTests extends ESTestCase {
                 totalRows += iterator.next().getPositionCount();
             }
         }
-        // 30 good + 1 bad (skipped) + 1 good = 31 rows.
+        // 30 good rows + 1 bad (skipped, not counted) + 1 good = 31 total rows returned.
         assertEquals(31, totalRows);
     }
 
