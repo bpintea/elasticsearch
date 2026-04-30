@@ -36,6 +36,11 @@ public record SchemaCacheKey(
         "format",
         "null_value",
         "header",
+        "header_row",
+        "column_prefix",
+        "comment",
+        "max_field_size",
+        "multi_value_syntax",
         "skip_rows",
         "trim_whitespace"
     );

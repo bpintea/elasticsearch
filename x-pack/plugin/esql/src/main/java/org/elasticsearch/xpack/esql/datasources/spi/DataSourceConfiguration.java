@@ -77,6 +77,25 @@ public abstract class DataSourceConfiguration {
     }
 
     /**
+     * Returns a copy of {@code raw} containing only entries whose key is in {@code fieldDefs}.
+     * Used at query time where the WITH clause carries a mix of storage and format options;
+     * the storage plugin must ignore keys it does not own rather than reject them as unknown.
+     * Returns null/empty unchanged.
+     */
+    protected static Map<String, Object> filterKnown(Map<String, Object> raw, Map<String, DataSourceConfigDefinition> fieldDefs) {
+        if (raw == null || raw.isEmpty()) {
+            return raw;
+        }
+        Map<String, Object> filtered = new HashMap<>(raw.size());
+        for (Map.Entry<String, Object> entry : raw.entrySet()) {
+            if (fieldDefs.containsKey(entry.getKey())) {
+                filtered.put(entry.getKey(), entry.getValue());
+            }
+        }
+        return filtered;
+    }
+
+    /**
      * Builds a raw settings map from alternating field/value pairs, skipping nulls.
      * Returns null if all values are null. Used by {@code fromFields()} factory methods.
      */

@@ -107,6 +107,57 @@ public class S3ConfigurationTests extends ESTestCase {
         assertNull(S3Configuration.fromMap(new HashMap<>()));
     }
 
+    public void testFromMapRejectsUnknownKeys() {
+        Map<String, Object> raw = new HashMap<>();
+        raw.put("access_key", "ak");
+        raw.put("header_row", false);
+        org.elasticsearch.common.ValidationException e = expectThrows(
+            org.elasticsearch.common.ValidationException.class,
+            () -> S3Configuration.fromMap(raw)
+        );
+        assertThat(e.getMessage(), org.hamcrest.Matchers.containsString("unknown setting [header_row]"));
+    }
+
+    public void testFromQueryConfigDropsUnknownKeys() {
+        Map<String, Object> raw = new HashMap<>();
+        raw.put("access_key", "ak");
+        raw.put("secret_key", "sk");
+        raw.put("endpoint", "http://e");
+        // Format-level options that the WITH clause may carry; the storage plugin must ignore them.
+        raw.put("header_row", false);
+        raw.put("column_prefix", "f");
+
+        S3Configuration config = S3Configuration.fromQueryConfig(raw);
+        assertNotNull(config);
+        assertEquals("ak", config.accessKey());
+        assertEquals("sk", config.secretKey());
+        assertEquals("http://e", config.endpoint());
+        assertNull(config.region());
+    }
+
+    public void testFromQueryConfigStillEnforcesAuthConflict() {
+        Map<String, Object> raw = new HashMap<>();
+        raw.put("auth", "none");
+        raw.put("access_key", "ak");
+        raw.put("header_row", false);
+        org.elasticsearch.common.ValidationException e = expectThrows(
+            org.elasticsearch.common.ValidationException.class,
+            () -> S3Configuration.fromQueryConfig(raw)
+        );
+        assertThat(e.getMessage(), org.hamcrest.Matchers.containsString("auth=none cannot be combined with explicit credentials"));
+    }
+
+    public void testFromQueryConfigWithOnlyUnknownKeysReturnsNull() {
+        Map<String, Object> raw = new HashMap<>();
+        raw.put("header_row", false);
+        raw.put("column_prefix", "f");
+        assertNull(S3Configuration.fromQueryConfig(raw));
+    }
+
+    public void testFromQueryConfigWithNullReturnsNull() {
+        assertNull(S3Configuration.fromQueryConfig(null));
+    }
+
     public void testEqualsWithAuth() {
         S3Configuration config1 = S3Configuration.fromFields(null, null, "ep", null, "none");
         S3Configuration config2 = S3Configuration.fromFields(null, null, "ep", null, "none");
