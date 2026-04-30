@@ -12,8 +12,9 @@ import org.elasticsearch.xpack.esql.datasources.FixtureUtils;
 
 /**
  * Unit tests for {@link FixtureUtils#injectWithEntries}. Placed in the CSV QA project
- * because it already depends on the qa/server library where FixtureUtils lives.
- * Extends {@link ESRestTestCase} to satisfy javaRestTest testing conventions.
+ * because it already depends on the qa/server library where {@code FixtureUtils} lives.
+ * Named with the {@code IT} suffix and extends {@link ESRestTestCase} to satisfy the
+ * {@code javaRestTest} testing conventions, even though no cluster is required.
  */
 public class FixtureUtilsIT extends ESRestTestCase {
 
@@ -48,8 +49,13 @@ public class FixtureUtilsIT extends ESRestTestCase {
         assertEquals("EXTERNAL \"s3://b/f.csv\" with { \"new_key\": \"v\", \"existing\": true }", result);
     }
 
-    public void testInjectWithEntriesEmptyEntries() {
+    public void testInjectWithEntriesEmptyEntriesNoExistingWith() {
         String result = FixtureUtils.injectWithEntries("EXTERNAL \"s3://b/f.csv\"", "");
         assertEquals("EXTERNAL \"s3://b/f.csv\" WITH {  }", result);
+    }
+
+    public void testInjectWithEntriesEmptyEntriesWithExistingWith() {
+        String result = FixtureUtils.injectWithEntries("EXTERNAL \"s3://b/f.csv\" WITH { \"header_row\": false }", "");
+        assertEquals("EXTERNAL \"s3://b/f.csv\" WITH { \"header_row\": false }", result);
     }
 }

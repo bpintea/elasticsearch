@@ -310,8 +310,12 @@ public class CsvFormatReader implements SegmentableFormatReader {
         if (value instanceof Boolean b) {
             return b;
         }
+        String s = value.toString().trim();
+        if (s.isEmpty()) {
+            return defaultValue;
+        }
         try {
-            return Booleans.parseBoolean(value.toString(), defaultValue);
+            return Booleans.parseBoolean(s.toLowerCase(Locale.ROOT));
         } catch (IllegalArgumentException e) {
             throw new IllegalArgumentException("Invalid boolean value [" + value + "] for option [" + key + "]", e);
         }

@@ -188,6 +188,9 @@ public class FixtureUtils {
         if (withBrace < 0) {
             return externalPart + " WITH { " + entries + " }";
         }
+        if (entries.isEmpty()) {
+            return externalPart;
+        }
         return externalPart.substring(0, withBrace + 1) + " " + entries + ", " + externalPart.substring(withBrace + 1);
     }
 
@@ -195,6 +198,10 @@ public class FixtureUtils {
      * Locate the position of the {@code &#123;} that opens a trailing {@code WITH &#123; ... &#125;}
      * clause in an EXTERNAL fragment, or {@code -1} if no such clause is present. The detection is
      * quote-aware so a literal {@code WITH} inside the source path string is ignored.
+     *
+     * <p>Note: escape sequences (e.g. {@code \"}) inside quoted strings are not handled — a
+     * backslash-escaped quote will toggle the quote state. This is acceptable for test fixture
+     * code where paths never contain escaped quotes.
      */
     private static int findOpenBraceOfTrailingWith(String externalPart) {
         int len = externalPart.length();

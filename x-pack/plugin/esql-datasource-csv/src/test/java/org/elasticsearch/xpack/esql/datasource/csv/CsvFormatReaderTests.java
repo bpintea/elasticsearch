@@ -34,6 +34,7 @@ import org.elasticsearch.xpack.esql.datasources.spi.StorageObject;
 import org.elasticsearch.xpack.esql.datasources.spi.StoragePath;
 import org.elasticsearch.xpack.esql.parser.ParsingException;
 import org.elasticsearch.xpack.esql.type.EsqlDataTypeConverter;
+import org.hamcrest.Matchers;
 import org.junit.After;
 
 import java.io.ByteArrayInputStream;
@@ -3009,7 +3010,7 @@ public class CsvFormatReaderTests extends ESTestCase {
         CsvFormatReader reader = (CsvFormatReader) new CsvFormatReader(blockFactory).withConfig(Map.of("header_row", false));
 
         IOException ex = expectThrows(IOException.class, () -> reader.schema(object));
-        assertTrue(ex.getMessage().toLowerCase(Locale.ROOT).contains("no data rows"));
+        assertThat(ex.getMessage().toLowerCase(Locale.ROOT), Matchers.containsString("no data rows"));
     }
 
     public void testHeaderlessCommentsOnlyInputThrows() {
@@ -3018,7 +3019,7 @@ public class CsvFormatReaderTests extends ESTestCase {
         CsvFormatReader reader = (CsvFormatReader) new CsvFormatReader(blockFactory).withConfig(Map.of("header_row", false));
 
         IOException ex = expectThrows(IOException.class, () -> reader.schema(object));
-        assertTrue(ex.getMessage().toLowerCase(Locale.ROOT).contains("no data rows"));
+        assertThat(ex.getMessage().toLowerCase(Locale.ROOT), Matchers.containsString("no data rows"));
     }
 
     public void testInvalidHeaderRowOptionThrows() {
@@ -3027,8 +3028,8 @@ public class CsvFormatReaderTests extends ESTestCase {
             IllegalArgumentException.class,
             () -> new CsvFormatReader(blockFactory).withConfig(Map.of("header_row", "not_a_bool"))
         );
-        assertTrue(ex.getMessage().contains("Invalid boolean value"));
-        assertTrue(ex.getMessage().contains("header_row"));
+        assertThat(ex.getMessage(), Matchers.containsString("Invalid boolean value"));
+        assertThat(ex.getMessage(), Matchers.containsString("header_row"));
     }
 
     public void testHeaderlessTreatsTypedSchemaLineAsData() throws IOException {
@@ -3158,8 +3159,8 @@ public class CsvFormatReaderTests extends ESTestCase {
         CsvFormatReader reader = new CsvFormatReader(blockFactory);
 
         ParsingException ex = expectThrows(ParsingException.class, () -> reader.schema(object));
-        assertTrue(ex.getMessage().contains("duplicate column names"));
-        assertTrue(ex.getMessage().contains("header_row"));
+        assertThat(ex.getMessage(), Matchers.containsString("duplicate column names"));
+        assertThat(ex.getMessage(), Matchers.containsString("header_row"));
     }
 
     public void testBlankHeaderNamesThrowParsingException() {
@@ -3171,9 +3172,8 @@ public class CsvFormatReaderTests extends ESTestCase {
         CsvFormatReader reader = new CsvFormatReader(blockFactory);
 
         ParsingException ex = expectThrows(ParsingException.class, () -> reader.schema(object));
-        assertTrue(ex.getMessage().contains("duplicate column names"));
-        // The empty-string duplicate must be visible in the message (rendered as '').
-        assertTrue("expected empty-name marker in message: " + ex.getMessage(), ex.getMessage().contains("['']"));
+        assertThat(ex.getMessage(), Matchers.containsString("duplicate column names"));
+        assertThat(ex.getMessage(), Matchers.containsString("['']"));
     }
 
     public void testDuplicateTypedHeaderNamesThrowParsingException() {
@@ -3182,7 +3182,7 @@ public class CsvFormatReaderTests extends ESTestCase {
         CsvFormatReader reader = new CsvFormatReader(blockFactory);
 
         ParsingException ex = expectThrows(ParsingException.class, () -> reader.schema(object));
-        assertTrue(ex.getMessage().contains("duplicate column names"));
+        assertThat(ex.getMessage(), Matchers.containsString("duplicate column names"));
     }
 
     private StorageObject createStorageObject(String csvContent) {
