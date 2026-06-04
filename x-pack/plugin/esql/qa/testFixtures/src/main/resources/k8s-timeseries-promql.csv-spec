@@ -1299,6 +1299,24 @@ rate_bytes_in:double | step:datetime            | cluster:keyword
 6.022                | 2024-05-10T00:20:00.000Z | staging
 ;
 
+// Regression for https://github.com/elastic/elasticsearch/issues/150726: a PromQL binary op between two
+// across-series aggregates where the operands have different selectors (one filtered by a label matcher) is
+// folded into a single time-series aggregate. The fold must keep a canonical aggregate layout so the filtered
+// and unfiltered rates stay resolved; otherwise translation crashes with an UnresolvedException on the rate.
+binary_between_aggregates_with_filtered_selector
+required_capability: promql_command_v0
+required_capability: fix_promql_time_bucket_v2
+required_capability: rate_with_interpolation_v2
+required_capability: fix_promql_round_to_nearest
+PROMQL index=k8s step=5m start="2024-05-10T00:15:00.000Z" end="2024-05-10T00:25:00.000Z" ratio=(round(sum(rate(network.total_bytes_in{cluster="prod"}[5m])) / sum(rate(network.total_bytes_in[5m])), 0.001))
+| SORT step;
+
+ratio:double | step:datetime
+0.324        | 2024-05-10T00:15:00.000Z
+0.373        | 2024-05-10T00:20:00.000Z
+0.278        | 2024-05-10T00:25:00.000Z
+;
+
 increase_on_plain_numeric_gauge
 required_capability: promql_command_v0
 required_capability: promql_implicit_type_coercion

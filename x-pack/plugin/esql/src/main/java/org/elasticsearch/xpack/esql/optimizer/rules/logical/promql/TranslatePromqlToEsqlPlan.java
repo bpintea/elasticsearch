@@ -17,6 +17,7 @@ import org.elasticsearch.xpack.esql.core.expression.Expression;
 import org.elasticsearch.xpack.esql.core.expression.FoldContext;
 import org.elasticsearch.xpack.esql.core.expression.Literal;
 import org.elasticsearch.xpack.esql.core.expression.MetadataAttribute;
+import org.elasticsearch.xpack.esql.core.expression.NameId;
 import org.elasticsearch.xpack.esql.core.expression.NamedExpression;
 import org.elasticsearch.xpack.esql.core.expression.function.Function;
 import org.elasticsearch.xpack.esql.core.expression.predicate.regex.RLikePattern;
@@ -540,14 +541,39 @@ public final class TranslatePromqlToEsqlPlan extends AnalyzerRules.Parameterized
             uniqueAggregates.addAll(withFilter(leftAgg.aggregates(), left.pendingFilter()));
             uniqueAggregates.addAll(withFilter(rightAgg.aggregates(), right.pendingFilter()));
 
-            var newAggregates = uniqueAggregates.stream().map(e -> (NamedExpression) e).map(e -> {
-                Expression inner = e;
-                if (e instanceof Alias a) {
-                    inner = a.child();
+            // Aggregates produced by createInnermostAggregatePlan follow the canonical
+            // [value-aggregates..., grouping-pass-throughs...] layout, where each pass-through shares its id
+            // with one of the groupings (e.g. step, _timeseries, keys). The Verifier and TranslateTimeSeriesAggregate
+            // rely on this trailing-groupings invariant. Preserve it after merging by renaming only the value
+            // aggregates (to avoid clashing output names) and re-appending the grouping pass-throughs unchanged so
+            // they stay aligned with leftAgg.groupings(). Right-side pass-throughs are duplicates of the left ones
+            // (groupings are required to be compatible above) and are dropped.
+            Set<NameId> groupingIds = new HashSet<>();
+            for (Expression grouping : leftAgg.groupings()) {
+                if (grouping instanceof NamedExpression ne) {
+                    groupingIds.add(ne.id());
                 }
-                // Rename it to avoid conflicting output names
-                return new Alias(e.source(), names.next(e.name()), inner, e.id());
-            }).toList();
+            }
+
+            List<NamedExpression> valueAggregates = new ArrayList<>();
+            List<NamedExpression> groupingPassThroughs = new ArrayList<>();
+            for (Expression e : uniqueAggregates) {
+                NamedExpression ne = (NamedExpression) e;
+                if (groupingIds.contains(ne.id())) {
+                    // A grouping pass-through from the left aggregate: keep it as-is at the tail.
+                    groupingPassThroughs.add(ne);
+                } else if (leftGroupingNames.contains(ne.name())) {
+                    // A right-side grouping pass-through (same name, different id): redundant, drop it.
+                    continue;
+                } else {
+                    Expression inner = ne instanceof Alias a ? a.child() : ne;
+                    valueAggregates.add(new Alias(ne.source(), names.next(ne.name()), inner, ne.id()));
+                }
+            }
+
+            List<NamedExpression> newAggregates = new ArrayList<>(valueAggregates.size() + groupingPassThroughs.size());
+            newAggregates.addAll(valueAggregates);
+            newAggregates.addAll(groupingPassThroughs);
 
             return leftAgg.with(leftAgg.child(), leftAgg.groupings(), newAggregates);
         });

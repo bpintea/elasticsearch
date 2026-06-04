@@ -25,6 +25,7 @@ import org.elasticsearch.xpack.esql.core.expression.AttributeSet;
 import org.elasticsearch.xpack.esql.core.expression.Expression;
 import org.elasticsearch.xpack.esql.core.expression.FieldAttribute;
 import org.elasticsearch.xpack.esql.core.expression.MetadataAttribute;
+import org.elasticsearch.xpack.esql.core.expression.NameId;
 import org.elasticsearch.xpack.esql.core.expression.NamedExpression;
 import org.elasticsearch.xpack.esql.core.expression.TypeResolutions;
 import org.elasticsearch.xpack.esql.core.expression.UnresolvedTimestamp;
@@ -279,20 +280,23 @@ public class Verifier {
                 var groupings = agg.groupings();
                 groupings.forEach(unresolvedExpressions);
 
-                // We don't count _timeseries which is added implicitly to grouping but not to a list of aggs
-                boolean hasGroupByAll = false;
+                // Aggregates re-expose the grouping keys as pass-through entries; those were already checked above as
+                // groupings, so skip them here to avoid duplicate messages. Identify them by id or name rather than by
+                // a positional slice: some rules (e.g. the PromQL binary fold) may emit a non-canonical aggregates
+                // ordering, and a positional slice could then silently skip a genuine, possibly unresolved, aggregate.
+                Set<NameId> groupingIds = new HashSet<>();
+                Set<String> groupingNames = new HashSet<>();
                 for (Expression grouping : groupings) {
-                    if (MetadataAttribute.isTimeSeriesAttribute(grouping)) {
-                        hasGroupByAll = true;
-                        break;
+                    if (grouping instanceof NamedExpression ne) {
+                        groupingIds.add(ne.id());
+                        groupingNames.add(ne.name());
                     }
                 }
-                int groupingSize = hasGroupByAll ? groupings.size() - 1 : groupings.size();
-
-                // followed by just the aggregates (to avoid going through the groups again)
-                var aggs = agg.aggregates();
-                int size = aggs.size() - groupingSize;
-                aggs.subList(0, size).forEach(unresolvedExpressions);
+                for (NamedExpression aggExpr : agg.aggregates()) {
+                    if (groupingIds.contains(aggExpr.id()) == false && groupingNames.contains(aggExpr.name()) == false) {
+                        unresolvedExpressions.accept(aggExpr);
+                    }
+                }
             }
             // similar approach for Lookup
             else if (p instanceof Lookup lookup) {

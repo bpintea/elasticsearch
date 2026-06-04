@@ -1,0 +1,3 @@
+PROMQL index=k8s step=5m ratio=(
+  sum(rate(network.total_bytes_in{cluster="prod"}[5m])) / sum(rate(network.total_bytes_in[5m]))
+)

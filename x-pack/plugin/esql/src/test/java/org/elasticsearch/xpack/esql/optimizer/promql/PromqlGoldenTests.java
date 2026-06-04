@@ -79,4 +79,18 @@ public class PromqlGoldenTests extends GoldenTestCase {
         assumeTrue("requires PromQL instant query support", EsqlCapabilities.Cap.PROMQL_INSTANT_QUERY.isEnabled());
         builder("PROMQL index=k8s time=\"2024-05-10T00:03:00.000Z\" result=(time())").transportVersion(TransportVersion.current()).run();
     }
+
+    /**
+     * Regression for <a href="https://github.com/elastic/elasticsearch/issues/150726">#150726</a>: a binary op between
+     * two across-series aggregates with different selectors (one filtered by a label matcher) is folded into a single
+     * time-series aggregate. The fold must keep a canonical aggregate layout so both rates stay resolved; otherwise the
+     * plan crashes with an UnresolvedException. The golden output pins the resulting two-phase aggregate plan.
+     */
+    public void testBinaryBetweenAggregatesWithFilteredSelector() {
+        assumeTrue("requires PromQL support", EsqlCapabilities.Cap.PROMQL_COMMAND_V0.isEnabled());
+        builder("""
+            PROMQL index=k8s step=5m ratio=(
+              sum(rate(network.total_bytes_in{cluster="prod"}[5m])) / sum(rate(network.total_bytes_in[5m]))
+            )""").transportVersion(TransportVersion.current()).run();
+    }
 }

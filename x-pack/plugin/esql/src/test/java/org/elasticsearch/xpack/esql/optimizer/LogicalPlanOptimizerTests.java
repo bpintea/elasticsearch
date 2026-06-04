@@ -11398,4 +11398,57 @@ public class LogicalPlanOptimizerTests extends AbstractLogicalPlanOptimizerTests
         );
         assertNotNull(plan);
     }
+
+    /**
+     * Regression test for https://github.com/elastic/elasticsearch/issues/150726.
+     * A PromQL binary expression between two across-series aggregates whose operands have different selectors (here
+     * one is filtered by a label matcher) is folded into a single {@link TimeSeriesAggregate} by
+     * {@code TranslatePromqlToEsqlPlan#foldBinaryOperatorAggregate}. The fold must keep the canonical
+     * {@code [value-aggregates..., grouping-pass-throughs...]} layout; otherwise the grouping pass-through ends up
+     * wedged between the two value aggregates, the {@code Verifier}'s positional aggregate/grouping slice silently
+     * skips the trailing value aggregate, and an unresolved per-series reference (e.g. {@code ?RATE_$1}) could reach
+     * the optimizer and crash {@code ReplaceAggregateAggExpressionWithEval} with an {@code UnresolvedException}.
+     */
+    public void testPromqlBinaryBetweenAggregatesWithFilteredSelector() {
+        var testAnalyzer = EsqlTestUtils.analyzer().addIndex(DEFAULT_PROMQL_INDEX_PATTERN, "k8s-mappings.json", IndexMode.TIME_SERIES);
+        var analyzed = testAnalyzer.query(
+            "PROMQL step=5m sum(rate(network.total_bytes_in{cluster=~\"prod.*\"}[5m])) / sum(rate(network.total_bytes_in[5m]))"
+        );
+        assertTrue("analyzed plan must be fully resolved", analyzed.resolved());
+
+        var plan = logicalOptimizerWithLatestVersion.optimize(analyzed);
+        assertNotNull(plan);
+        assertTrue("optimized plan must be fully resolved", plan.resolved());
+
+        // The fold must produce a two-phase time-series aggregate: an outer Aggregate over an inner
+        // TimeSeriesAggregate, with one per-series Rate materialized per operand.
+        List<TimeSeriesAggregate> tsAggregates = plan.collect(TimeSeriesAggregate.class);
+        assertThat("expected a single TimeSeriesAggregate in the optimized plan", tsAggregates.size(), equalTo(1));
+        long rateCount = tsAggregates.getFirst()
+            .aggregates()
+            .stream()
+            .filter(a -> a instanceof Alias alias && alias.child() instanceof Rate)
+            .count();
+        assertThat("both per-operand rates must be materialized and resolved", rateCount, equalTo(2L));
+
+        // Every aggregate node must keep the canonical layout: once a grouping pass-through is seen, all remaining
+        // aggregate entries must also be grouping pass-throughs (i.e. no value aggregate may trail a grouping).
+        for (Aggregate agg : plan.collect(Aggregate.class)) {
+            var groupingIds = agg.groupings()
+                .stream()
+                .filter(NamedExpression.class::isInstance)
+                .map(g -> ((NamedExpression) g).id())
+                .collect(Collectors.toSet());
+            var aggs = agg.aggregates();
+            boolean seenGrouping = false;
+            for (NamedExpression aggExpr : aggs) {
+                boolean isGrouping = groupingIds.contains(aggExpr.id());
+                if (isGrouping) {
+                    seenGrouping = true;
+                } else if (seenGrouping) {
+                    fail("non-canonical aggregate layout: value aggregate trails a grouping pass-through in " + agg);
+                }
+            }
+        }
+    }
 }

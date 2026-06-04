@@ -212,6 +212,10 @@ public final class TranslateTimeSeriesAggregate extends AnalyzerRules.Parameteri
                         requiredTimeSeriesSource.set(Boolean.TRUE);
                     }
                     AggregateFunction firstStageFn = tsAgg.perTimeSeriesAggregation();
+                    // The input aggregate is resolved (guarded above), so the per-series aggregation must be too.
+                    // An unresolved function here would later surface as an UnresolvedException deep in canonicalization
+                    // (see ReplaceAggregateAggExpressionWithEval); fail loudly instead.
+                    assert firstStageFn.resolved() : "unresolved per-time-series aggregation [" + firstStageFn + "]";
                     Alias newAgg = timeSeriesAggs.computeIfAbsent(firstStageFn, k -> {
                         Alias firstStageAlias = new Alias(tsAgg.source(), internalNames.next(tsAgg.functionName()), firstStageFn);
                         firstPassAggs.add(firstStageAlias);
