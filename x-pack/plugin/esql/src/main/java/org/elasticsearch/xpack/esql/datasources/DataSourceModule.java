@@ -73,7 +73,7 @@ public final class DataSourceModule implements Closeable {
         BlockFactory blockFactory,
         ExecutorService executor,
         DataSourceCredentials credentials,
-        BooleanSupplier workloadIdentityEnabled
+        BooleanSupplier managedIdentityEnabled
     ) {
         this(
             dataSourcePlugins,
@@ -82,7 +82,7 @@ public final class DataSourceModule implements Closeable {
             blockFactory,
             executor,
             credentials,
-            workloadIdentityEnabled,
+            managedIdentityEnabled,
             null,
             null,
             null,
@@ -98,7 +98,7 @@ public final class DataSourceModule implements Closeable {
         BlockFactory blockFactory,
         ExecutorService executor,
         DataSourceCredentials credentials,
-        BooleanSupplier workloadIdentityEnabled,
+        BooleanSupplier managedIdentityEnabled,
         @Nullable ThreadPool threadPool,
         @Nullable Environment environment,
         @Nullable ResourceWatcherService resourceWatcherService,
@@ -111,7 +111,7 @@ public final class DataSourceModule implements Closeable {
             blockFactory,
             executor,
             credentials,
-            workloadIdentityEnabled,
+            managedIdentityEnabled,
             threadPool,
             environment,
             resourceWatcherService,
@@ -127,7 +127,7 @@ public final class DataSourceModule implements Closeable {
         BlockFactory blockFactory,
         ExecutorService executor,
         DataSourceCredentials credentials,
-        BooleanSupplier workloadIdentityEnabled,
+        BooleanSupplier managedIdentityEnabled,
         @Nullable ThreadPool threadPool,
         @Nullable Environment environment,
         @Nullable ResourceWatcherService resourceWatcherService,
@@ -146,7 +146,7 @@ public final class DataSourceModule implements Closeable {
         this.storageProviderRegistry = new StorageProviderRegistry(
             settings,
             credentials,
-            workloadIdentityEnabled,
+            managedIdentityEnabled,
             retryScheduler,
             effectiveLocalFileAccess
         );
