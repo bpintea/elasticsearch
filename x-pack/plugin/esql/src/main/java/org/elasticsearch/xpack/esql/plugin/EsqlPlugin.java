@@ -372,6 +372,7 @@ public class EsqlPlugin extends Plugin implements ActionPlugin, ExtensiblePlugin
             services.threadPool(),
             services.environment(),
             services.resourceWatcherService(),
+            services.telemetryProvider().getMeterRegistry(),
             localFileAccess
         );
 

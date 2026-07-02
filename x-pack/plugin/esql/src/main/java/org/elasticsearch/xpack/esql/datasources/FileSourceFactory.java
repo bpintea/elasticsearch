@@ -17,6 +17,7 @@ import org.elasticsearch.xpack.esql.datasources.spi.ConfigKeyValidator;
 import org.elasticsearch.xpack.esql.datasources.spi.Configured;
 import org.elasticsearch.xpack.esql.datasources.spi.ErrorPolicy;
 import org.elasticsearch.xpack.esql.datasources.spi.ExternalSourceFactory;
+import org.elasticsearch.xpack.esql.datasources.spi.ExternalSourceMetrics;
 import org.elasticsearch.xpack.esql.datasources.spi.FileList;
 import org.elasticsearch.xpack.esql.datasources.spi.FilterPushdownSupport;
 import org.elasticsearch.xpack.esql.datasources.spi.FormatReader;
@@ -102,6 +103,8 @@ final class FileSourceFactory implements ExternalSourceFactory {
      * test-only constructors; production always goes through the full-arg constructor via {@link DataSourceModule}.
      */
     private final LocalFileAccess localFileAccess;
+    // Node telemetry sink, threaded into the operator factory so opened storage objects publish read metrics.
+    private final ExternalSourceMetrics externalSourceMetrics;
 
     FileSourceFactory(
         StorageProviderRegistry storageRegistry,
@@ -109,7 +112,16 @@ final class FileSourceFactory implements ExternalSourceFactory {
         DecompressionCodecRegistry codecRegistry,
         Settings settings
     ) {
-        this(storageRegistry, formatRegistry, codecRegistry, settings, null, null, LocalFileAccess.UNRESTRICTED);
+        this(
+            storageRegistry,
+            formatRegistry,
+            codecRegistry,
+            settings,
+            null,
+            null,
+            LocalFileAccess.UNRESTRICTED,
+            ExternalSourceMetrics.NOOP
+        );
     }
 
     FileSourceFactory(
@@ -119,7 +131,16 @@ final class FileSourceFactory implements ExternalSourceFactory {
         Settings settings,
         @Nullable ExecutorService splitDiscoveryExecutor
     ) {
-        this(storageRegistry, formatRegistry, codecRegistry, settings, splitDiscoveryExecutor, null, LocalFileAccess.UNRESTRICTED);
+        this(
+            storageRegistry,
+            formatRegistry,
+            codecRegistry,
+            settings,
+            splitDiscoveryExecutor,
+            null,
+            LocalFileAccess.UNRESTRICTED,
+            ExternalSourceMetrics.NOOP
+        );
     }
 
     FileSourceFactory(
@@ -130,7 +151,16 @@ final class FileSourceFactory implements ExternalSourceFactory {
         @Nullable ExecutorService splitDiscoveryExecutor,
         @Nullable BlockFactory blockFactory
     ) {
-        this(storageRegistry, formatRegistry, codecRegistry, settings, splitDiscoveryExecutor, blockFactory, LocalFileAccess.UNRESTRICTED);
+        this(
+            storageRegistry,
+            formatRegistry,
+            codecRegistry,
+            settings,
+            splitDiscoveryExecutor,
+            blockFactory,
+            LocalFileAccess.UNRESTRICTED,
+            ExternalSourceMetrics.NOOP
+        );
     }
 
     FileSourceFactory(
@@ -140,7 +170,8 @@ final class FileSourceFactory implements ExternalSourceFactory {
         Settings settings,
         @Nullable ExecutorService splitDiscoveryExecutor,
         @Nullable BlockFactory blockFactory,
-        LocalFileAccess localFileAccess
+        LocalFileAccess localFileAccess,
+        ExternalSourceMetrics externalSourceMetrics
     ) {
         Check.notNull(storageRegistry, "storageRegistry cannot be null");
         Check.notNull(formatRegistry, "formatRegistry cannot be null");
@@ -151,6 +182,7 @@ final class FileSourceFactory implements ExternalSourceFactory {
         this.splitDiscoveryExecutor = splitDiscoveryExecutor;
         this.blockFactory = blockFactory;
         this.localFileAccess = localFileAccess != null ? localFileAccess : LocalFileAccess.UNRESTRICTED;
+        this.externalSourceMetrics = externalSourceMetrics != null ? externalSourceMetrics : ExternalSourceMetrics.NOOP;
     }
 
     @Override
@@ -316,6 +348,7 @@ final class FileSourceFactory implements ExternalSourceFactory {
                 context.maxBufferSize(),
                 readExecutor
             )
+                .externalSourceMetrics(externalSourceMetrics)
                 .rowLimit(context.rowLimit())
                 .fileList(context.fileList())
                 .schemaMap(context.schemaMap())
