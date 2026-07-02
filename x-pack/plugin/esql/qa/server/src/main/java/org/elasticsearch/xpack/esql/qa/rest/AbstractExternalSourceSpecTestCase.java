@@ -465,7 +465,7 @@ public abstract class AbstractExternalSourceSpecTestCase extends EsqlSpecTestCas
                 client(),
                 "esql_spec_s3",
                 "s3",
-                Map.of("endpoint", s3Fixture.getAddress(), "auth", "none")
+                Map.of("endpoint", s3Fixture.getAddress(), "auth", "anonymous")
             );
             case GCS -> DatasetRegistry.ensureDataSource(
                 client(),
