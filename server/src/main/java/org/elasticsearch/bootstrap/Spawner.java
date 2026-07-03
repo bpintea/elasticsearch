@@ -11,6 +11,7 @@ package org.elasticsearch.bootstrap;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.elasticsearch.common.settings.Settings;
 import org.elasticsearch.core.IOUtils;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.nativeaccess.NativeAccess;
@@ -36,6 +37,16 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * Spawns native module controller processes if present. Will only work prior to a system call filter being installed.
  */
 final class Spawner implements Closeable {
+
+    private static final Logger logger = LogManager.getLogger(Spawner.class);
+
+    /**
+     * The name of an optional file, sitting alongside a module's descriptor, that lists node setting keys (one per line) which must
+     * all resolve to {@code true} for that module's native controller to be spawned. Modules without this file always spawn their
+     * native controller, preserving prior behavior. This lets a module opt out of spawning its (potentially costly or fragile) native
+     * controller when it is effectively disabled, without leaking any module-specific knowledge into this generic bootstrap code.
+     */
+    static final String NATIVE_CONTROLLER_SETTINGS_FILE_NAME = "native-controller-settings";
 
     /*
      * References to the processes that have been spawned, so that we can destroy them.
@@ -90,6 +101,9 @@ final class Spawner implements Closeable {
                 );
                 throw new IllegalArgumentException(message);
             }
+            if (isNativeControllerEnabled(modules, environment.settings()) == false) {
+                continue;
+            }
             final Process process = spawnNativeController(spawnPath, environment.tmpDir());
             // The process _shouldn't_ write any output via its stdout or stderr, but if it does then
             // it will block if nothing is reading that output. To avoid this we can pipe the
@@ -98,6 +112,32 @@ final class Spawner implements Closeable {
             startPumpThread(info.getName(), "stderr", process.getErrorStream());
             processes.add(process);
         }
+    }
+
+    /**
+     * Determines whether a module's native controller should be spawned, based on the optional list of node setting keys declared in
+     * {@link #NATIVE_CONTROLLER_SETTINGS_FILE_NAME} alongside its descriptor.
+     *
+     * @param moduleDir the directory of the module being considered for spawning
+     * @param settings  the node settings
+     * @return {@code true} if the module has no such file, or every setting key it lists resolves to {@code true}
+     */
+    private static boolean isNativeControllerEnabled(final Path moduleDir, final Settings settings) throws IOException {
+        final Path settingsFile = moduleDir.resolve(NATIVE_CONTROLLER_SETTINGS_FILE_NAME);
+        if (Files.isRegularFile(settingsFile) == false) {
+            return true;
+        }
+        for (final String line : Files.readAllLines(settingsFile, StandardCharsets.UTF_8)) {
+            final String key = line.strip();
+            if (key.isEmpty()) {
+                continue;
+            }
+            if (settings.getAsBoolean(key, true) == false) {
+                logger.info("not spawning native controller for module [{}] because setting [{}] is false", moduleDir.getFileName(), key);
+                return false;
+            }
+        }
+        return true;
     }
 
     private void startPumpThread(String componentName, String streamName, InputStream stream) {
