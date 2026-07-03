@@ -1,0 +1,6 @@
+area: "Machine Learning, Infra/Plugins"
+issues:
+ - 145966
+pr: 152893
+summary: Skip spawning ML controller when ML is disabled
+type: enhancement
