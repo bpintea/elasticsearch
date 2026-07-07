@@ -11,8 +11,6 @@ import org.elasticsearch.client.internal.node.NodeClient;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.RestUtils;
-import org.elasticsearch.rest.Scope;
-import org.elasticsearch.rest.ServerlessScope;
 import org.elasticsearch.rest.action.RestToXContentListener;
 import org.elasticsearch.xcontent.XContentParser;
 import org.elasticsearch.xpack.esql.datasources.EsqlDataSourcesCapabilities;
@@ -23,7 +21,8 @@ import java.util.Set;
 
 import static org.elasticsearch.rest.RestRequest.Method.PUT;
 
-@ServerlessScope(Scope.PUBLIC)
+// TODO: waiting for release
+// @ServerlessScope(Scope.PUBLIC)
 public class RestPutDataSourceAction extends BaseRestHandler {
 
     @Override
