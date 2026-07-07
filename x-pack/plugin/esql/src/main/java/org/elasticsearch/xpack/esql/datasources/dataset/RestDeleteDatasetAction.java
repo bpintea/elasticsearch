@@ -12,6 +12,8 @@ import org.elasticsearch.common.Strings;
 import org.elasticsearch.rest.BaseRestHandler;
 import org.elasticsearch.rest.RestRequest;
 import org.elasticsearch.rest.RestUtils;
+import org.elasticsearch.rest.Scope;
+import org.elasticsearch.rest.ServerlessScope;
 import org.elasticsearch.rest.action.RestToXContentListener;
 import org.elasticsearch.xpack.esql.datasources.EsqlDataSourcesCapabilities;
 
@@ -20,8 +22,7 @@ import java.util.Set;
 
 import static org.elasticsearch.rest.RestRequest.Method.DELETE;
 
-// TODO: waiting for release
-// @ServerlessScope(Scope.PUBLIC)
+@ServerlessScope(Scope.INTERNAL)
 public class RestDeleteDatasetAction extends BaseRestHandler {
 
     @Override
