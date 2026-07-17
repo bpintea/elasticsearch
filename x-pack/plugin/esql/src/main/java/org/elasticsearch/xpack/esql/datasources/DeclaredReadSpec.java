@@ -6,6 +6,7 @@
  */
 package org.elasticsearch.xpack.esql.datasources;
 
+import org.elasticsearch.TransportVersion;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 import org.elasticsearch.common.io.stream.Writeable;
@@ -52,6 +53,13 @@ public record DeclaredReadSpec(
     Map<String, String> dateFormats,
     Set<String> declaredTypeColumns
 ) implements Writeable {
+
+    /**
+     * Registers {@code declared_read_spec_provenance} (incl. 9.5 id {@code 9458002}) so mixed-cluster
+     * BWC can decode search-context/PIT ids stamped by 9.5 tip. Wire use of provenance is not ported here.
+     */
+    @SuppressWarnings("unused")
+    private static final TransportVersion DECLARED_READ_SPEC_PROVENANCE = TransportVersion.fromName("declared_read_spec_provenance");
 
     /** The empty spec — nothing declared. The default carried on every non-declared read. */
     public static final DeclaredReadSpec NONE = new DeclaredReadSpec(Map.of(), null, Map.of(), Set.of());
